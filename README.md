@@ -1,194 +1,115 @@
-# three-geo
+# geo-to-model
 
-[![NPM][npm-badge]][npm-url]
-[![MIT licensed][mit-badge]][mit-url]
-[![CI][actions-badge]][actions-url]
+[![MIT licensed](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-[npm-badge]: https://img.shields.io/npm/v/three-geo.svg
-[npm-url]: https://www.npmjs.com/package/three-geo
-[mit-badge]: https://img.shields.io/badge/license-MIT-blue.svg
-[mit-url]: https://github.com/w3reality/three-geo/blob/master/LICENSE
-[actions-badge]: https://github.com/w3reality/three-geo/workflows/CI/badge.svg
-[actions-url]: https://github.com/w3reality/three-geo/actions
+**geo-to-model** 是一个浏览器端的三维地形生成器：输入经纬度或在地图上框选行政区，即可生成可自由浏览的卫星贴图三维地形（含水系 / 道路 / 建筑），并导出为 **GLB / glTF / OBJ / STL / FBX** 模型。
 
-**three-geo** is a [three.js](https://github.com/mrdoob/three.js) based geographic visualization library. Using three-geo, we can easily build satellite-textured 3D terrain models in near real-time by simply specifying GPS coordinates anywhere on the globe. The geometry of the terrain is based on the RGB-encoded DEM (Digital Elevation Model) provided by the Mapbox Maps API.
+地形几何基于 Mapbox Maps API 的 RGB 编码 DEM（数字高程模型），要素来自 Mapbox Streets v8 矢量瓦片；行政区边界与底图来自高德 / DataV。整个项目构建于 [three.js](https://github.com/mrdoob/three.js)（r176）与 [three-geo](https://github.com/w3reality/three-geo) 之上。
 
-The terrain is represented by standard [THREE.Mesh](https://threejs.org/docs/#api/en/objects/Mesh) objects. This makes it easy for us to access underlying geometry/texture array and perform original GIS (Geographic Information System) experiments in JavaScript. (See Usage for how to programatically obtain those mesh objects).
+> 本仓库 fork 自 [w3reality/three-geo](https://github.com/w3reality/three-geo)，在其地形库的基础上新增了完整的 **terrain-builder** 应用与若干库层增强。
 
-Credits: this library has been made possible thanks to
+## ✨ 主要功能
 
-- geo-related libraries ([mapbox](https://github.com/mapbox), [Turfjs](https://github.com/Turfjs/turf)) and [the Mapbox Maps API](https://www.mapbox.com/api-documentation/#maps).
-- [peterqliu](https://github.com/peterqliu) for informative 3D terrain-related articles and implementation.
+- **多格式坐标输入** — 十进制度、带方向后缀（N/S/E/W）、度分（DDM）、度分秒（DMS）、紧凑 DMS（`46d34m34sN`）等，实时预览解析结果。
+- **地图选区（中国）** — 在高德底图上按**中文或拼音**搜索省 / 市 / 区县（如 `杭州` / `hangzhou` / `hz`），或用级联下拉选择；也可用**多边形 / 矩形工具手绘**任意区域。确定后自动换算坐标并**按区域边界裁剪**三维结果。
+- **可勾选要素** — 地形、水系、道路、建筑，均贴合地形表面。
+- **自由浏览** — OrbitControls（左键旋转 / 右键平移 / 滚轮缩放），自动框选模型。
+- **数据量预估 + 加载进度 + 导出尺寸** — 构建前显示瓦片数与预计下载体积；构建时实时进度条；选择导出格式时实时测算文件大小。
+- **多格式导出** — GLB / glTF / OBJ / STL（three 官方导出器）、FBX（内置 ASCII 几何写出器，含顶点色）。
+- **稳健性** — 瓦片请求并发限流、超大范围二次确认、损坏贴图容错与导出异常兜底。
 
-## Demo
+## 🚀 快速开始
 
-### 1) examples/geo-viewer ([live](https://w3reality.github.io/three-geo/examples/geo-viewer/io/index.html) | [source code](https://github.com/w3reality/three-geo/tree/master/examples/geo-viewer))
+```bash
+# 安装依赖（在仓库根目录）
+npm i --ignore-scripts
 
-This demo app includes features such as
+# 开发模式：监听构建 + 本地服务器
+npm run tb:dev
+# 打开 http://localhost:8181/index.html
 
-- on-demand 3D terrain building (by a mouse click on the Leaflet map),
-- real-time camera projection onto Leaflet (with oritentaion and HFoV indication),
-- terrain interaction with a VR-like laser beam,
-- measuring Euclidean distances between terrain points,
-- auto camera orbiting around the custom z-axis.
-
-Live:
-
-- <https://w3reality.github.io/three-geo/examples/geo-viewer/io/index.html?lat=46.5763&lng=7.9904>
-
-  [![image](https://w3reality.github.io/three-geo/examples/img/5.jpg)](https://w3reality.github.io/three-geo/examples/geo-viewer/io/index.html?lat=46.5763&lng=7.9904&title=Eiger)
-
-- <https://w3reality.github.io/three-geo/examples/geo-viewer/io/index.html?lat=46.5763&lng=7.9904&mode=contours>
-
-  [![image](https://w3reality.github.io/three-geo/examples/img/eiger-contours-100m.png)](https://w3reality.github.io/three-geo/examples/geo-viewer/io/index.html?lat=46.5763&lng=7.9904&mode=contours&title=Eiger)
-
-- <https://w3reality.github.io/three-geo/examples/geo-viewer/io/index.html?lat=36.2058&lng=-112.4413>
-
-  [![image](https://w3reality.github.io/three-geo/examples/img/2.jpg)](https://w3reality.github.io/three-geo/examples/geo-viewer/io/index.html?lat=36.2058&lng=-112.4413&title=Colorado_River)
-
-### 2) examples/heightmaps ([live](https://w3reality.github.io/three-geo/examples/heightmaps/index.html) | [source code](https://github.com/w3reality/three-geo/tree/master/examples/heightmaps))
-
-This demo illustrates the relationship between a reconstructed 3D terrain and its underlying satellite/DEM tiles.
-
-[![image](https://w3reality.github.io/three-geo/examples/img/heightmap-demo-2.jpg)](https://w3reality.github.io/three-geo/examples/heightmaps/index.html)
-
-### 3) examples/flat ([live](https://w3reality.github.io/three-geo/examples/flat/index.html) | [source code](https://github.com/w3reality/three-geo/tree/master/examples/flat/index.html))
-
-How to get a flattened view of the terrain by post-editing the underlying geometry.
-
-### <a name="ex-proj"></a>4) examples/projection ([live](https://w3reality.github.io/three-geo/examples/projection/index.html) | [source code](https://github.com/w3reality/three-geo/tree/master/examples/projection/index.html))
-
-How to register a new 3D object on top of the terrain based on its geographic location `[latitude, longitude, elevation]`.
-
-## Setup
-
-**Installation**
-
-```
-$ npm i three-geo
+# 或仅构建一次
+npm run tb:build
 ```
 
-**Loading**
+首次打开页面时，侧栏会提示输入 **Mapbox Access Token**（`pk.` 开头的公开 token，可在 [account.mapbox.com](https://account.mapbox.com/access-tokens/) 免费获取）。Token 仅保存在本机浏览器的 `localStorage`，**不会上传或写入代码库**，后续打开无需再次输入。
 
-Script tag: use `ThreeGeo` after
+> 应用必须经 HTTP 访问（`tb:dev` 已起本地服务器）；`file://` 下 ES module 与跨域贴图会被浏览器拦截。
 
+应用的详细说明、实现原理与文件结构见 **[examples/terrain-builder/README.md](examples/terrain-builder/README.md)**。
+
+## 📦 重新生成行政区索引
+
+省 / 市 / 区县的离线索引（`examples/terrain-builder/src/regions-index.json`）由脚本从 [DataV.GeoAtlas](https://geo.datav.aliyun.com) 爬取生成。如需更新：
+
+```bash
+npm run tb:regions
 ```
-<script src="dist/three-geo.min.js"></script>
-```
 
-ES6:
+## 🗺 数据与基准面说明
 
-```
-import ThreeGeo from 'dist/three-geo.esm.js';
-```
+- **地形 / 卫星 / 要素**：Mapbox Maps API（WGS-84）。
+- **行政区边界**：DataV.GeoAtlas；**二维底图**：高德地图。两者均为 **GCJ-02（火星坐标）** 基准，在地图上彼此对齐。
+- 选区确定时会把边界由 GCJ-02 转为 WGS-84（误差 < 1 米）再驱动地形生成，避免地形与边界错位数百米。
 
-## Usage
+---
 
-Here is an example of how to build a geographic terrain located at GPS coordinates (46.5763, 7.9904) in a 5 km radius circle. The terrain's satellite zoom resolution is set to 12. (The highest zoom value supported is 17.)
+## 底层库 `three-geo`
 
-For standalone tests, use **examples/simple-viewer** ([source code](https://github.com/w3reality/three-geo/tree/master/examples/simple-viewer)).
+terrain-builder 构建于 three-geo 之上，并对其做了少量**向后兼容**的增强（新增 Streets v8 矢量瓦片 API、可选进度钩子 `Fetch.onTileDone`、可选并发上限 `Fetch.maxConcurrent`，以及 three r176 适配）。下面保留 three-geo 的核心编程接口，供直接以代码方式获取地形网格时参考。
 
-For use with NodeJS, do enable [this `isNode` option](#note-nodejs) as well.
+### 用法示例
+
+在 GPS 坐标 (46.5763, 7.9904) 处、半径 5 km、卫星 zoom 12 构建地形：
 
 ```js
+import ThreeGeo from 'three-geo';
+
 const tgeo = new ThreeGeo({
-    tokenMapbox: '********', // <---- set your Mapbox API token here
+    tokenMapbox: '********', // <---- 你的 Mapbox API token
 });
 
 const terrain = await tgeo.getTerrainRgb(
     [46.5763, 7.9904], // [lat, lng]
-    5.0,               // radius of bounding circle (km)
-    12);               // zoom resolution
+    5.0,               // 外接圆半径（km）
+    12);               // zoom 分辨率（最高 17）
 
 const scene = new THREE.Scene();
 scene.add(terrain);
-
-const renderer = new THREE.WebGLRenderer({ canvas });
-renderer.render(scene, camera);
 ```
 
-[![image](https://w3reality.github.io/three-geo/examples/img/1.jpg)](https://w3reality.github.io/three-geo/examples/simple-viewer/index.html)
+### API
 
-## Who is using `three-geo`?
+`origin` / `radius` / `zoom` 是以下方法的公共参数：
 
-- [jet-wasp](https://jet-wasp.glitch.me/) - Three-geo as A-Frame component ([source code](https://glitch.com/edit/#!/jet-wasp))
-- [locus-pocus](https://locus-pocus.io/) - A webapp to visualise your area using three-geo
+- `origin` **Array\<number\>** — 地形中心的 GPS 坐标 `[latitude, longitude]`。
+- `radius` **number** — 外接圆半径（km）。
+- `zoom` **number** — 卫星瓦片 zoom 分辨率，取值 {11–17}，越高瓦片调用越多。
 
-## API
-
-In this section, we list `three-geo`'s public API methods, where `origin`, `radius`, and `zoom` are parameters common to them:
-
-  - `origin` **Array\<number\>** Center of the terrain represented as GPS coordinates `[latitude, longitude]`.
-
-  - `radius` **number** Radius of the circle that fits the terrain.
-
-  - `zoom` **number (integer)** Satellite zoom resolution of the tiles in the terrain. Select from {11, 12, 13, 14, 15, 16, 17}, where 17 is the highest value supported. For a fixed radius, higher zoom resolution results in more tileset API calls.
-
-
-`ThreeGeo`
+**`ThreeGeo`**
 
 - `constructor(opts={})`
+  - `opts.tokenMapbox`=`""` **string** — Mapbox API token（必填）。
+  - `opts.unitsSide`=`1.0` **number** — 地形外接正方形在 WebGL 空间的边长。
+  - `opts.isNode`=`false` **boolean** — 在 NodeJS 中使用时须设为 `true`。
 
-  Create a ThreeGeo instance with parameters.
+- `async getTerrainRgb(origin, radius, zoom)` — 返回表示地形三维表面的 **THREE.Group**，其 `.children` 为带卫星贴图的 **THREE.Mesh** 数组。
 
-  - `opts.tokenMapbox`=\"\" **string** Mapbox API token. This must be provided.
+- `async getTerrainVector(origin, radius, zoom)` — 返回地形等高线图的 **THREE.Group**（拉伸面 + 等高线）。
 
-  - `opts.unitsSide`=1.0 **number** The side length of the square that fits the terrain in WebGL space.
+- `getProjection(origin, radius, unitsSide=1.0)` — 返回 `{ proj, projInv, bbox, unitsPerMeter }`：
+  - `proj(latlng)` — 把 `[lat, lng]` 映射到 WebGL 坐标 `[x, y]`。
+  - `projInv(x, y)` — 把 WebGL 坐标 `[x, y]` 反映射回 `[lat, lng]`。
+  - `bbox` — 计算出的边界框 `[w, s, e, n]`。
+  - `unitsPerMeter` — WebGL 空间中每米对应的长度。
 
-  - `opts.isNode`=false **boolean** <a name="note-nodejs"></a>To use three-geo with NodeJS, you must explicitly set this option to `true`. [ Added in v1.4.5 ]
+## 🙏 致谢
 
-- `async getTerrainRgb(origin, radius, zoom)` [ Added in v1.4 ]
+- [w3reality/three-geo](https://github.com/w3reality/three-geo) — 本项目所基于的三维地形库。
+- 地理相关库 [mapbox](https://github.com/mapbox)、[Turf.js](https://github.com/Turfjs/turf) 与 [Mapbox Maps API](https://www.mapbox.com/api-documentation/#maps)。
+- [DataV.GeoAtlas](https://datav.aliyun.com/portal/school/atlas/area_selector) 提供的中国行政区边界数据。
+- [peterqliu](https://github.com/peterqliu) 关于三维地形的文章与实现。
 
-  Return a **THREE.Group** object that represents a 3D surface of the terrain.
+## 许可
 
-  The group object contains an **Array\<THREE.Mesh\>** as `.children`. Each mesh corresponds to a partial geometry of the terrain textured with satellite images.
-
-- `async getTerrainVector(origin, radius, zoom)` [ Added in v1.4 ]
-
-  Return a **THREE.Group** object that represents a 3D contour map of the terrain.
-
-  The group object contains an **Array\<THREE.Object3D\>** as `.children`. Each child object is either an extruded **THREE.Mesh** with `.name` attribute prefixed by `dem-vec-shade-<ele>-`, or a **THREE.Line** with `.name` prefixed by `dem-vec-line-<ele>-` (`<ele>` is the height of each contour in meters).
-
-- `getProjection(origin, radius, unitsSide=1.0)` [ [Example](#ex-proj) ]
-
-  Return an object `{ proj, projInv, bbox, unitsPerMeter }` that includes transformation-related functions and parameters, where
-
-  - `proj(latlng)` is a function that maps geo coordinates `latlng` (an array `[lat, lng]`) to WebGL coordinates `[x, y]`.
-
-  - `projInv(x, y)` is a function that maps WebGL coordinates `[x, y]` to geo coordinates `[lat, lng]`.
-
-  - `bbox` is an array `[w, s, e, n]` that represents the computed bounding box of the terrain, where `w` (West) and `e` (East) are longitudinal limits; and `s` (South) and `n` (North) are latitudinal limits.
-
-  - `unitsPerMeter` is the length in WebGL-space per meter.
-
-<p><details>
-<summary>Legacy callback based API</summary>
-
-- `getTerrain(origin, radius, zoom, callbacks={})`
-
-  - `callbacks.onRgbDem` **function (meshes) {}** Implement this to request the geometry of the terrain. Called when the entire terrain\'s geometry is obtained.
-
-    - `meshes` **Array\<THREE.Mesh\>** All the meshes belonging to the terrain.
-
-  - `callbacks.onSatelliteMat` **function (mesh) {}** Implement this to request the satellite textures of the terrain. Called when the satellite texture of each mesh belonging to the terrain is obtained.
-
-    - `mesh` **THREE.Mesh** One of the meshes that's part of the terrain.
-
-  - `callbacks.onVectorDem` **function (objs) {}** Implement this to request the contour map of the terrain. Called when the contour map of the terrain is obtained.
-
-    - `objs` **Array\<THREE.Object3D\>** Extruded meshes (**THREE.Mesh** objects with `.name` attribute prefixed by `dem-vec-shade-<ele>-`) and lines (**THREE.Line** objects with `.name` attribute prefixed by `dem-vec-line-<ele>-`), where `<ele>` is the height of each contour in meters.
-
-</details></p>
-
-## Build
-
-After `git clone` and `cd` to the repository,
-
-```
-$ npm i
-$ npm run build
-```
-
-### Building on Windows
-
-While `npm run build` on Windows is confirmed to work (via GitHub's [workflow with some tweaks](https://github.com/w3reality/three-geo/blob/b8775e3a3e2d6b815fd550a96f7f45e441ff54a2/.github/workflows/nodejs.yml#L30-L32)), for better results, it is recommended to use WSL2 instead (thanks [@sonicviz](https://github.com/sonicviz) for [reporting this](https://github.com/w3reality/three-geo/issues/44#issuecomment-1482906468)).
+[MIT](LICENSE)
