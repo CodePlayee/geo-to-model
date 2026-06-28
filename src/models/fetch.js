@@ -37,6 +37,12 @@ class Fetch {
                 prefix = 'https://api.mapbox.com/v4/mapbox.mapbox-terrain-v2';
                 res = '.vector.pbf';
                 break;
+            case 'mapbox-streets-vector':
+                // https://docs.mapbox.com/data/tilesets/reference/mapbox-streets-v8/
+                // Layers include: water, waterway, road, building, ...
+                prefix = 'https://api.mapbox.com/v4/mapbox.mapbox-streets-v8';
+                res = '.vector.pbf';
+                break;
             case 'mapbox-terrain-rgb':
                 // https://docs.mapbox.com/help/troubleshooting/access-elevation-data/#mapbox-terrain-rgb
                 prefix = 'https://api.mapbox.com/v4/mapbox.terrain-rgb';
@@ -128,6 +134,46 @@ class Fetch {
     }
 
     static fetchTile(zoompos, api, token, isNode) {
+        // Optional global concurrency gate. When `Fetch.maxConcurrent` is a
+        // positive number, at most that many tile requests are in flight at
+        // once; the rest queue. Default (null) keeps the original unbounded
+        // behavior, so this is fully backward compatible. Browsers and the
+        // Mapbox endpoint reject/close connections when thousands of requests
+        // are fired simultaneously (large area * high zoom), so consumers that
+        // fetch big regions should set a small limit (e.g. 6).
+        return Fetch._gate(() => Fetch._fetchTileInner(zoompos, api, token, isNode));
+    }
+
+    // Run `task` under the concurrency limit, queueing if necessary.
+    static _gate(task) {
+        const limit = Fetch.maxConcurrent;
+        if (!(typeof limit === 'number' && limit > 0)) {
+            return task(); // unlimited (default)
+        }
+        if (Fetch._active < limit) {
+            Fetch._active++;
+            return Fetch._runGated(task);
+        }
+        // No slot free: queue and resolve when a slot opens.
+        return new Promise((resolve) => {
+            Fetch._queue.push(() => {
+                Fetch._active++;
+                resolve(Fetch._runGated(task));
+            });
+        });
+    }
+
+    static async _runGated(task) {
+        try {
+            return await task();
+        } finally {
+            Fetch._active--;
+            const next = Fetch._queue.shift();
+            if (next) next();
+        }
+    }
+
+    static _fetchTileInner(zoompos, api, token, isNode) {
         const tag = 'fetchTile()';
         const isMapbox = api.startsWith('mapbox-');
         const uri = isMapbox ?
@@ -138,6 +184,7 @@ class Fetch {
         const future = res => {
             let ret = null;
             if (api.includes('mapbox-terrain-vector') ||
+                api.includes('mapbox-streets-vector') ||
                 api.includes('custom-terrain-vector')) {
                 ret = this.getVectorTile(uri, isNode, res);
             } else if (api.includes('mapbox-terrain-rgb') ||
@@ -161,8 +208,27 @@ class Fetch {
                 console.warn(`${tag}: err: ${err}`);
                 res(null);
             }
+        }).then(result => {
+            // Optional progress hook: invoked once per tile fetch completion.
+            // `Fetch.onTileDone` is an opt-in callback set by consumers (e.g. the
+            // terrain-builder app) and is a no-op when unset.
+            if (typeof Fetch.onTileDone === 'function') {
+                try { Fetch.onTileDone({ api, zoompos, ok: result !== null }); }
+                catch (_) { /* never let a progress hook break fetching */ }
+            }
+            return result;
         });
     }
 }
+
+// Opt-in global progress hook (unset by default). Signature:
+//   ({ api:string, zoompos:[z,x,y], ok:boolean }) => void
+Fetch.onTileDone = null;
+
+// Opt-in global concurrency limit for tile fetches (null = unlimited, default).
+// Set to a small positive integer to cap simultaneous requests.
+Fetch.maxConcurrent = null;
+Fetch._active = 0;
+Fetch._queue = [];
 
 export default Fetch;

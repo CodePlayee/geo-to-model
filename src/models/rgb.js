@@ -337,7 +337,7 @@ class RgbModel {
             console.log('cSegments:', cSegments);
             // w and h don't matter since position.array is being overwritten
             
-            let geom = new THREE.PlaneBufferGeometry(1, 1, cSegments[0], cSegments[1]);
+            let geom = new THREE.PlaneGeometry(1, 1, cSegments[0], cSegments[1]);
             geom.attributes.position.array = new Float32Array(arr);
             
             // test identifying a 127x1 "belt"
@@ -398,6 +398,8 @@ class RgbModel {
             //==== workaround: do manual y-flip
             tex = new THREE.DataTexture(this.createDataFlipY(pixels.data, pixels.shape),
                 pixels.shape[0], pixels.shape[1], THREE.RGBAFormat);
+            // r152+: textures default to NoColorSpace; satellite imagery is sRGB.
+            if ('SRGBColorSpace' in THREE) { tex.colorSpace = THREE.SRGBColorSpace; }
 
             tex.needsUpdate = true;
         } else {

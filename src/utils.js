@@ -36,7 +36,7 @@ class Utils {
 
         const dzBounds = actual.height;
         const ls = new THREE.LineSegments(
-            new THREE.EdgesGeometry(new THREE.BoxBufferGeometry(
+            new THREE.EdgesGeometry(new THREE.BoxGeometry(
                 ...sides, dzBounds)),
             new THREE.LineBasicMaterial({color: actual.color}));
         ls.position.set(...offset, - dzBounds / 2 + actual.offsetZ);

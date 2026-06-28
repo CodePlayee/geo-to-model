@@ -17,7 +17,10 @@
         "test:main": "NODE_OPTIONS=\"--no-deprecation\"  es-pack test --node --browser",
         "test:windows": "es-pack build -m umd esm esm-compat",
         "test:viewer": "(cd ./examples/geo-viewer && es-pack build);",
-        "dev": "es-pack build --dev"
+        "dev": "es-pack build --dev",
+        "tb:build": "node ./examples/terrain-builder/build.mjs",
+        "tb:dev": "node ./examples/terrain-builder/build.mjs --serve",
+        "tb:regions": "node ./scripts/gen-regions.mjs"
     },
     "repository": {
         "type": "git",
@@ -46,11 +49,16 @@
         "@turf/transform-rotate": "^5.1.5",
         "@turf/transform-translate": "^5.1.5",
         "@turf/union": "6.2.0-alpha.2",
+        "buffer": "^6.0.3",
         "es-pack-js": "0.6.0",
+        "esbuild": "^0.28.1",
         "get-pixels": "^3.3.3",
+        "leaflet": "^1.9.4",
+        "leaflet-draw": "^1.0.4",
         "pbf": "^3.1.0",
+        "pinyin-pro": "^3.28.1",
         "regenerator": "^0.14.2",
-        "three": "^0.138.0",
+        "three": "^0.176.0",
         "three-laser-pointer": "^1.2.3",
         "uniq": "^1.0.1",
         "xhr": "^2.6.0"
