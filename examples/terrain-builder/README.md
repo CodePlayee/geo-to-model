@@ -50,6 +50,7 @@ npm run tb:dev
 - **行政区数据与基准面（datum）**：DataV 行政区边界与高德底图均为 **GCJ-02（火星坐标）** 基准，二者在地图上对齐；而 three-geo / Mapbox 地形管线为 **WGS-84**。因此选区确定时会经 `src/gcj02.js` 把边界由 GCJ-02 转为 WGS-84（前向公式 + 迭代求逆，误差 < 1 米），再驱动地形生成，避免地形与边界错位数百米。中国境外坐标按 WGS-84 原样通过。
 - **区域裁剪**：地形仍按「中心点 + 半径」的方形抓取（复用既有预估/进度/导出逻辑）；构建完成后由 `src/clip.js` 把边界投影到地形坐标系，对每个网格逐三角面按质心做内外判断裁剪。裁剪边缘为网格分辨率级的锯齿（缩放级别越高越细），跨界建筑可能被切断，属尽力而为的区域裁剪。可用「裁剪到所选区域边界」复选框关闭（保留方形）。
 - **行政区索引**：`scripts/gen-regions.mjs` 爬取 DataV（国→省→市→区县）生成离线索引 `src/regions-index.json`（adcode/名称/拼音/中心点，约 0.4 MB），供搜索与级联下拉使用；区县边界几何在选中时按 adcode 按需拉取，不打包。重新生成：`npm run tb:regions`。该索引在打开地图弹窗时才按需请求：`build.mjs` 会把它复制一份到 `dist/regions-index.json`，运行时以 **bundle 自身的 URL**（`import.meta.url`）为基准解析（依次尝试 `dist/` 旁的副本 → 源码树 `src/` → 文档相对路径），因此页面部署在任意路径、或只发布 `index.html + dist/` 都能取到，不会出现「行政区索引加载失败：HTTP 404」。
+- **边界接口的防盗链**：DataV 的 `areas_v3/bound/<adcode>.json` 按 `Referer` 做防盗链——非 `*.aliyun.com` 来源一律 403，而不带 `Referer` 的请求正常返回（其 CORS 本身已是 `*`）。因此 `map.js` 用 `fetch(url, { referrerPolicy: 'no-referrer' })` 抑制该头，页面部署在 GitHub Pages 等第三方域名下也能取到边界。
 - **要素数据**：复用 three-geo 的矢量瓦片解析（`@mapbox/vector-tile`），新增 `mapbox-streets-vector` API 拉取 Streets v8 瓦片。要素几何构建在 `src/streets.js`。
 - **导出**：`src/exporter.js`。GLB/glTF 会把卫星 `DataTexture` 转为 `CanvasTexture` 以便嵌入图像；FBX 为纯几何（顶点 + 法线 + 顶点色），不含卫星贴图，可用 Blender / FBX2glTF 进一步转换。
 - **打包**：esbuild（`build.mjs`）。浏览器端用 `src/get-pixels-browser.js`（原生 `<img>` + canvas 解码）替换 `get-pixels`，避免其 Node 流依赖。Leaflet / leaflet-draw 的 CSS 一并打包为 `dist/app.bundle.css`（其图标 PNG/GIF 内联为 data URL），由 `index.html` 引入。

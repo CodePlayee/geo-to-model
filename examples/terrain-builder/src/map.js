@@ -296,7 +296,12 @@ export default class MapPicker {
         if (syncDropdowns) this._syncDropdowns(entry);
         this._setHint(`正在加载「${entry.name}」边界…`);
         try {
-            const res = await fetch(`${DATAV}/${adcode}.json`);
+            // DataV hotlink-protects this endpoint: any Referer other than
+            // *.aliyun.com gets a 403, while a request with no Referer at all
+            // is served normally (and CORS is already `*`). Suppressing the
+            // header is therefore what makes it usable from a third-party
+            // origin such as GitHub Pages.
+            const res = await fetch(`${DATAV}/${adcode}.json`, { referrerPolicy: 'no-referrer' });
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
             const gj = await res.json();
             const rings = this._geometryToRings(gj.features[0].geometry);
