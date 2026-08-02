@@ -77,6 +77,7 @@ class App {
         this._resize();
         window.addEventListener('resize', () => this._resize());
         this._animate();
+        this._autoStart();
     }
 
     _initLights() {
@@ -239,6 +240,39 @@ class App {
         this.tgeo = null;
         this._refreshTokenUI();
         this._showTokenPanel('已清除本机保存的 Token。');
+    }
+
+    // Ask Mapbox whether a token is actually usable.
+    // -> true (valid) | false (rejected) | null (check itself failed).
+    async _verifyToken(token) {
+        try {
+            const url = 'https://api.mapbox.com/tokens/v2?access_token=' +
+                encodeURIComponent(token);
+            const res = await fetch(url);
+            if (res.status === 401 || res.status === 403) return false;
+            return res.ok ? true : null;
+        } catch (_) {
+            return null; // offline / blocked — unknown, not "invalid"
+        }
+    }
+
+    // On startup, build the default view (Grand Canyon @ zoom 12, from the
+    // form defaults) so the viewer isn't empty — but only with a token that
+    // Mapbox accepts, otherwise the page would just fire a wall of 401s.
+    async _autoStart() {
+        if (!this.token || !this.tgeo) return;
+        this.setStatus('正在校验 Mapbox Token…', true);
+        const ok = await this._verifyToken(this.token);
+        if (ok === false) {
+            this.setStatus('✗ Mapbox Token 无效或已过期，请重新填写后再生成。');
+            this._showTokenPanel('Token 无效或已过期（Mapbox 拒绝了该 Token）。');
+            return;
+        }
+        if (ok === null) {
+            this.setStatus('未能校验 Mapbox Token（网络异常），未自动生成。可点「生成三维内容」重试。');
+            return;
+        }
+        await this.build();
     }
 
     // Estimate tile count + download volume from current inputs (exact tile

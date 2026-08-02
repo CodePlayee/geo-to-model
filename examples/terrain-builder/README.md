@@ -4,6 +4,7 @@
 
 ## 功能
 
+- **打开即有内容**：本机已保存可用的 Mapbox Token 时，页面加载后自动生成默认示例——**大峡谷（36.2058, -112.4413）缩放级别 12 的地形**；Token 缺失或被 Mapbox 拒绝时不会自动请求，改为提示填写 Token。
 - **多格式坐标输入**：十进制度、带方向后缀（N/S/E/W）、度分（DDM）、度分秒（DMS）、紧凑 DMS（`46d34m34sN`）等，输入框实时预览解析结果。
 - **地图选区（中国）**：点击「在地图上选择区域」打开地图弹窗，
   - 在高德底图（GCJ-02）上按**中文或拼音**搜索省/市/区县（如 `杭州` / `hangzhou` / `hz`），或用**省 / 市 / 区县级联下拉**选择；
@@ -44,6 +45,8 @@ npm run tb:dev
 首次打开页面时，侧栏会提示输入 **Mapbox Access Token**（`pk.` 开头的公开 token，可在 [account.mapbox.com](https://account.mapbox.com/access-tokens/) 免费获取）。保存后 token 仅存于本机浏览器的 `localStorage`（键 `tb.mapboxToken`），不会上传或提交到代码库，后续打开无需再次输入。点侧栏的「更换」可重新设置。
 
 > 代码中**不再硬编码** token。`pk.` 公开 token 在前端本就会暴露给浏览器，建议在 Mapbox 账号中按 URL 限制其使用范围。地图选区用的高德底图与 DataV 行政区边界不需要 Mapbox token。
+
+> 页面启动时会用 `https://api.mapbox.com/tokens/v2` 校验一次本机保存的 token：通过才自动生成默认示例地形；返回 401/403 则弹出 token 面板提示重填；请求本身失败（离线/被拦截）则不自动生成，也不报错。
 
 ## 实现说明
 
