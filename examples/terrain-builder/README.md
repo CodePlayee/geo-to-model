@@ -18,6 +18,7 @@
 - **自由浏览**：OrbitControls（左键旋转 / 右键平移 / 滚轮缩放），自动框选模型。
 - **数据量预估**：确定范围/缩放/要素后，构建前即显示精确瓦片数与预计下载体积。
 - **加载进度条**：构建时实时显示瓦片下载进度（高程 → 卫星 → 矢量）。
+- **三维加载动画**：构建期间视口内不再是空场景——一张格网以随机噪声起伏，随进度推进可起伏的顶点越来越少（冻结的顶点回落并变暗），100% 时完全展平后淡出。
 - **导出尺寸**：选择导出格式时实时测算并显示该格式的实际文件大小，导出时复用已生成数据。
 - **数据可用性提示**：勾选了但该区域/缩放级别无数据的要素会给出明确提示。
 - **导出 3D 模型**：GLB、glTF、OBJ、STL（three 官方导出器），FBX（内置 ASCII 写出器，含顶点色）。
@@ -52,6 +53,7 @@ npm run tb:dev
 - **行政区索引**：`scripts/gen-regions.mjs` 爬取 DataV（国→省→市→区县）生成离线索引 `src/regions-index.json`（adcode/名称/拼音/中心点，约 0.4 MB），供搜索与级联下拉使用；区县边界几何在选中时按 adcode 按需拉取，不打包。重新生成：`npm run tb:regions`。该索引在打开地图弹窗时才按需请求：`build.mjs` 会把它复制一份到 `dist/regions-index.json`，运行时以 **bundle 自身的 URL**（`import.meta.url`）为基准解析（依次尝试 `dist/` 旁的副本 → 源码树 `src/` → 文档相对路径），因此页面部署在任意路径、或只发布 `index.html + dist/` 都能取到，不会出现「行政区索引加载失败：HTTP 404」。
 - **边界接口的防盗链**：DataV 的 `areas_v3/bound/<adcode>.json` 按 `Referer` 做防盗链——非 `*.aliyun.com` 来源一律 403，而不带 `Referer` 的请求正常返回（其 CORS 本身已是 `*`）。因此 `map.js` 用 `fetch(url, { referrerPolicy: 'no-referrer' })` 抑制该头，页面部署在 GitHub Pages 等第三方域名下也能取到边界。
 - **要素数据**：复用 three-geo 的矢量瓦片解析（`@mapbox/vector-tile`），新增 `mapbox-streets-vector` API 拉取 Streets v8 瓦片。要素几何构建在 `src/streets.js`。
+- **加载动画**：`src/loading-grid.js`。41×41 顶点的线框格网共用一份 position/color 缓冲（`LineSegments` + `Points`）。每个顶点在初始化时抽取一个 `rank ∈ [0,1)`，仅当 `进度 < rank` 时继续按各自的相位/频率做正弦起伏；进度越高，还在动的顶点越少，被冻结的顶点缓动回落到平面并渐变为暗色。格网按当前相机距离定位到轨道中心，因此上一次构建把相机留在任何尺度都能看见；构建结束（成功或失败）后整体展平并淡出。
 - **导出**：`src/exporter.js`。GLB/glTF 会把卫星 `DataTexture` 转为 `CanvasTexture` 以便嵌入图像；FBX 为纯几何（顶点 + 法线 + 顶点色），不含卫星贴图，可用 Blender / FBX2glTF 进一步转换。
 - **打包**：esbuild（`build.mjs`）。浏览器端用 `src/get-pixels-browser.js`（原生 `<img>` + canvas 解码）替换 `get-pixels`，避免其 Node 流依赖。Leaflet / leaflet-draw 的 CSS 一并打包为 `dist/app.bundle.css`（其图标 PNG/GIF 内联为 data URL），由 `index.html` 引入。
 
@@ -68,6 +70,7 @@ terrain-builder/
     ├── map.js              # 地图选区弹窗（Leaflet + 高德底图 + DataV 边界 + 绘制）
     ├── gcj02.js            # GCJ-02 ⇄ WGS-84 基准面转换
     ├── clip.js             # 按区域边界裁剪生成的网格
+    ├── loading-grid.js     # 加载动画：顶点随机起伏的格网，按进度逐步冻结
     ├── regions-index.json  # 离线行政区索引（由 scripts/gen-regions.mjs 生成）
     ├── streets.js          # 水系/道路/建筑要素模型（Streets v8）
     ├── estimate.js         # 瓦片数 + 下载体积预估

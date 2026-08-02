@@ -15,6 +15,7 @@ import { estimate, fmtBytes } from './estimate.js';
 import MapPicker from './map.js';
 import { ringGcj02ToWgs84 } from './gcj02.js';
 import { clipToRegion } from './clip.js';
+import LoadingGrid from './loading-grid.js';
 
 // The Mapbox access token is normally supplied by the user at runtime and
 // persisted in localStorage — it is never hard-coded or committed. A public
@@ -93,6 +94,10 @@ class App {
         this.scene.add(this.grid);
         this.axes = new THREE.AxesHelper(0.6);
         this.scene.add(this.axes);
+        // Rippling grid shown while data downloads (see loading-grid.js).
+        this.loadingGrid = new LoadingGrid();
+        this.scene.add(this.loadingGrid.object);
+        this.clock = new THREE.Clock();
     }
 
     _bindUI() {
@@ -314,6 +319,25 @@ class App {
         const pct = Math.max(0, Math.min(1, frac)) * 100;
         $('#progress-bar').style.width = pct.toFixed(1) + '%';
         $('#progress-label').textContent = label || `${pct.toFixed(0)}%`;
+        this.loadingGrid.setProgress(frac);
+    }
+
+    // Show the loading grid filling the current view: centered on the orbit
+    // target and sized from the camera distance, so it is visible whatever
+    // scale the previous model left the camera at. The static helpers are
+    // hidden meanwhile to keep the animation legible.
+    _startLoadingGrid() {
+        const dist = this.camera.position.distanceTo(this.controls.target);
+        const visibleH = 2 * dist * Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2));
+        this.loadingGrid.start(this.controls.target, visibleH * 0.6);
+        this.grid.visible = false;
+        this.axes.visible = false;
+    }
+
+    _stopLoadingGrid() {
+        this.loadingGrid.finish();
+        this.grid.visible = true;
+        this.axes.visible = true;
     }
 
     // Render a list of data-availability warnings (empty list clears the panel).
@@ -377,6 +401,7 @@ class App {
 
         this.setStatus('正在生成地形…', true);
         this._clearModel();
+        this._startLoadingGrid();
         this.setWarnings([]);
 
         const warnings = [];
@@ -480,6 +505,7 @@ class App {
         } finally {
             Fetch.onTileDone = null;
             this.setProgress(null);
+            this._stopLoadingGrid();
         }
     }
 
@@ -531,6 +557,13 @@ class App {
         // scale helpers to model
         this.grid.scale.setScalar(maxDim * 1.5);
         this.grid.position.set(center.x, center.y, box.min.z);
+
+        // Re-seat the loading grid on the new framing before it fades out, so
+        // the transition happens around the model instead of off-screen.
+        if (this.loadingGrid.active) {
+            this.loadingGrid.object.position.set(center.x, center.y, box.min.z);
+            this.loadingGrid.object.scale.setScalar(maxDim * 0.75);
+        }
     }
 
     // Measure the actual byte size of the currently selected export format by
@@ -591,6 +624,7 @@ class App {
 
     _animate() {
         requestAnimationFrame(() => this._animate());
+        this.loadingGrid.update(this.clock.getDelta());
         this.controls.update();
         this.renderer.render(this.scene, this.camera);
     }
