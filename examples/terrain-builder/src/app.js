@@ -57,6 +57,7 @@ class App {
         this.controls = new OrbitControls(this.camera, this.renderer.domElement);
         this.controls.enableDamping = true;
         this.controls.dampingFactor = 0.08;
+        this.controls.autoRotateSpeed = 1.2;
 
         this._initLights();
         this._initHelpers();
@@ -111,6 +112,7 @@ class App {
 
         $('#btn-build').addEventListener('click', () => this.build());
         $('#btn-export').addEventListener('click', () => this.doExport());
+        $('#btn-autorotate').addEventListener('click', () => this.setAutoRotate());
         $('#coords').addEventListener('keydown', (e) => {
             if (e.key === 'Enter') this.build();
         });
@@ -612,6 +614,16 @@ class App {
         } finally {
             btn.disabled = false;
         }
+    }
+
+    // Toggle (or force, with an explicit argument) camera auto-rotation around
+    // the current orbit target. OrbitControls does the work in `update()`,
+    // which the render loop already calls every frame.
+    setAutoRotate(on = !this.controls.autoRotate) {
+        this.controls.autoRotate = on;
+        const btn = $('#btn-autorotate');
+        btn.classList.toggle('on', on);
+        btn.setAttribute('aria-pressed', String(on));
     }
 
     _resize() {
