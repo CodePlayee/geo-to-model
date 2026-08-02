@@ -16,14 +16,18 @@ import MapPicker from './map.js';
 import { ringGcj02ToWgs84 } from './gcj02.js';
 import { clipToRegion } from './clip.js';
 
-// The Mapbox access token is supplied by the user at runtime and persisted in
-// localStorage — it is never hard-coded or committed. A public `pk.` token is
-// safe to keep client-side (it is exposed to the browser by design); restrict
-// it by URL in your Mapbox account if you want to limit where it can be used.
+// The Mapbox access token is normally supplied by the user at runtime and
+// persisted in localStorage — it is never hard-coded or committed. A public
+// `pk.` token is safe to keep client-side (it is exposed to the browser by
+// design); restrict it by URL in your Mapbox account if you want to limit
+// where it can be used. A deployment may also bake in its own default by
+// building with MAPBOX_TOKEN set (see build.mjs); a token entered by the user
+// still takes precedence.
 const TOKEN_KEY = 'tb.mapboxToken';
+const BUILTIN_TOKEN = (__MAPBOX_TOKEN__ || '').trim();
 const getStoredToken = () => {
-    try { return (localStorage.getItem(TOKEN_KEY) || '').trim(); }
-    catch (_) { return ''; }
+    try { return (localStorage.getItem(TOKEN_KEY) || '').trim() || BUILTIN_TOKEN; }
+    catch (_) { return BUILTIN_TOKEN; }
 };
 const storeToken = (t) => {
     try { localStorage.setItem(TOKEN_KEY, t.trim()); } catch (_) { /* private mode */ }

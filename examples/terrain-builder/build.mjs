@@ -32,6 +32,10 @@ const opts = {
     define: {
         'process.env.NODE_ENV': '"production"',
         global: 'globalThis',
+        // Optional default Mapbox token for a deployment that wants the demo
+        // usable without the visitor pasting their own. Empty by default, in
+        // which case the app keeps prompting for one.
+        __MAPBOX_TOKEN__: JSON.stringify(process.env.MAPBOX_TOKEN || ''),
     },
     alias: {
         // Replace get-pixels' node-stream-heavy browser build with a native
