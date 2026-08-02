@@ -46,18 +46,42 @@ export default class MapPicker {
 
     // ---- data --------------------------------------------------------------
 
+    // Candidate URLs for the offline admin index, most reliable first.
+    //
+    // A document-relative path ('./src/...') only works when the page happens
+    // to sit one level above src/ — it breaks for deployments that ship just
+    // index.html + dist/, or for a page served from a nested/extension-less
+    // URL. Resolving against the bundle's own URL (import.meta.url, i.e.
+    // .../dist/app.bundle.js) is layout-independent: build.mjs copies the JSON
+    // next to the bundle, and ../src/ still covers a raw source checkout.
+    static _indexUrls() {
+        const urls = [];
+        try {
+            urls.push(new URL('regions-index.json', import.meta.url).href);
+            urls.push(new URL('../src/regions-index.json', import.meta.url).href);
+        } catch (_) { /* no import.meta (non-ESM host): fall back below */ }
+        urls.push('./src/regions-index.json');
+        return urls.filter((u, i, a) => a.indexOf(u) === i);
+    }
+
     async _loadIndex() {
         this._setHint('正在加载行政区索引…');
-        try {
-            const res = await fetch('./src/regions-index.json');
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            this.index = await res.json();
-            this._byAdcode = new Map(this.index.map((e) => [e.adcode, e]));
-            this._fillProvinces();
-            this._setHint('');
-        } catch (e) {
-            this._setHint('行政区索引加载失败：' + e.message);
+        const tried = [];
+        for (const url of MapPicker._indexUrls()) {
+            try {
+                const res = await fetch(url);
+                if (!res.ok) { tried.push(`${url} → HTTP ${res.status}`); continue; }
+                this.index = await res.json();
+                this._byAdcode = new Map(this.index.map((e) => [e.adcode, e]));
+                this._fillProvinces();
+                this._setHint('');
+                return;
+            } catch (e) {
+                tried.push(`${url} → ${e.message}`);
+            }
         }
+        console.error('[terrain-builder] 行政区索引加载失败：\n' + tried.join('\n'));
+        this._setHint(`行政区索引加载失败（已尝试 ${tried.length} 个路径，详见浏览器控制台）`);
     }
 
     _children(parentAdcode, level) {

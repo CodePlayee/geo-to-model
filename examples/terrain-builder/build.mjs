@@ -3,9 +3,27 @@
 
 import * as esbuild from 'esbuild';
 import { fileURLToPath } from 'url';
+import fs from 'fs';
 import path from 'path';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+// The offline admin index is fetched at runtime (lazily, ~0.4 MB) rather than
+// bundled. Copy it next to the bundle so it resolves via import.meta.url no
+// matter how the app is hosted — including deployments that ship only
+// index.html + dist/. Runs on every rebuild, and in --serve mode too (esbuild
+// serves unknown /dist/* paths from disk).
+const copyRegionsIndex = {
+    name: 'copy-regions-index',
+    setup(build) {
+        const from = path.join(__dirname, 'src/regions-index.json');
+        const to = path.join(__dirname, 'dist/regions-index.json');
+        build.onEnd(() => {
+            fs.mkdirSync(path.dirname(to), { recursive: true });
+            fs.copyFileSync(from, to);
+        });
+    },
+};
 
 const opts = {
     entryPoints: [path.join(__dirname, 'src/app.js')],
@@ -18,6 +36,7 @@ const opts = {
     outfile: path.join(__dirname, 'dist/app.bundle.js'),
     sourcemap: true,
     logLevel: 'info',
+    plugins: [copyRegionsIndex],
     loader: {
         '.json': 'json',
         // Leaflet / leaflet-draw ship CSS that references marker PNGs and a GIF
